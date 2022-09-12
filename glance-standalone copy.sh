@@ -152,7 +152,7 @@ function start_watching () {
 
     # parse result; calculate profit/loss (PL).
     for DATA_ARR in $(echo ${RESULT}| jq -c '.msgArray[]'); do
-      local TMP_RESULT=$(echo ${DATA_ARR} |  jq '.c,.a,.b' | xargs printf "%s %s %s")
+      local TMP_RESULT=$(echo ${DATA_ARR} |  jq '.c,.b,.a' | xargs printf "%s %s %s")
       _CODE=$(echo ${TMP_RESULT} | cut -d ' '  -f 1)
       _BID=$(echo ${TMP_RESULT} | cut -d ' '  -f 2 | cut -d '_' -f 1)
       _ASK=$(echo ${TMP_RESULT} | cut -d ' '  -f 3 | cut -d '_' -f 1)
