@@ -27,13 +27,22 @@ _FRACTIONAL_DIGITS_STYLE=${UWHITE}
 #   STOCK_${CODE}_BID
 
 
+function init_exchange_table () {
+  EXCHANGE_CODE_URL="https://raw.githubusercontent.com/ktlast/market-envs/master/api/tw-stock-api-code.txt"
+  if [[ $(curl -LI ${EXCHANGE_CODE_URL} -o /dev/null -w '%{http_code}\n' -s) == "200" ]]; then
+    curl -s ${EXCHANGE_CODE_URL} -o ${EXCHANGE_TABLE_PATH}
+  fi
+  [[ ! -e ${EXCHANGE_TABLE_PATH} ]] && echo "Exchange table not found at: [${EXCHANGE_TABLE_PATH}]." && exit 1
+}
+
+
 function check_command_exists () {
   CMDS=(
     "curl"
     "jq"
     "xargs"
     "cut"
-    "python"
+    "python3"
   )
 
   for CMD in ${CMDS[@]}; do
@@ -169,7 +178,7 @@ function start_watching () {
       # echo ${_COST}
       # echo ${_AMOUNT}
 
-      _PL=$(python -c "print(round(( ${_BID} - ${_COST} ) * ${_AMOUNT}, 2))")
+      _PL=$(python3 -c "print(round(( ${_BID} - ${_COST} ) * ${_AMOUNT}, 2))")
       _SUM+=" ${_PL}"
 
        if [[ ${#_AMOUNT} -ge 4 ]]; then
@@ -185,7 +194,7 @@ function start_watching () {
 
     done
     echo "--------------------------------------------------------------"
-    _NET_PL=$(python -c "print(round(sum(map(float, \"${_SUM}\".split())), 2))")
+    _NET_PL=$(python3 -c "print(round(sum(map(float, \"${_SUM}\".split())), 2))")
     printf "%62s\n" "${_NET_PL}"
 
     # echo ${RESULT} | jq '.msgArray[]| .c, .a, .b'
@@ -227,6 +236,7 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     start)
+      init_exchange_table
       start_watching
       ;;
     
