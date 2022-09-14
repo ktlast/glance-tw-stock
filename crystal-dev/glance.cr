@@ -15,7 +15,7 @@ result_arr.size.times { |x|
 
 
 class Position
-  # property stock_code : String
+  property stock_code : String
   property shares : Int32
   property at_cost : Float32
 
@@ -23,11 +23,6 @@ class Position
     @stock_code = stock_code
     @shares = 0
     @at_cost = 0.0
-  end
-
-  def go
-    puts "Code  #Shares   @cost"
-    puts "#{@stock_code} #{@shares}  #{@at_cost}"
   end
 end
 
@@ -46,7 +41,7 @@ class Portfolio
 
   def go
     puts "Code  #Shares   @cost"
-    puts "#{@stock_code} #{@shares}  #{@at_cost}"
+    puts "#{@positions}"
   end
 end
 
