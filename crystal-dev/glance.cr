@@ -3,15 +3,15 @@ require "json"
 
 response = HTTP::Client.get "https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=tse_9933.tw|otc_6248.tw&json=1&delay=0"
 response.status_code      # => 200
-result_arr = JSON.parse(response.body)["msgArray"]
+result_arr = JSON.parse(response.body)["msgArray"].as_a
 
-#p! result_arr.size
+result_arr.each do |x|
+  puts x["c"] 
+  puts x["b"] 
+  puts x["a"] 
+end
 
-#result_arr.size.times { |x| 
-#  puts result_arr[x]["c"] 
-#  puts result_arr[x]["b"] 
-#  puts result_arr[x]["a"] 
-#}
+
 
 
 class Quote
@@ -21,9 +21,16 @@ class Quote
   def initialize(init_stock_code_array)
     @init_stock_code_array = init_stock_code_array
     @quote_hash = Hash(String, Hash(String, String | Float32 | Int32)).new
+    @exchange_hash = Hash(String, String).new
+    
+    File.read("../.exchange_table.csv").each_line do |line|
+      entry = line.split(",")
+      @exchange_hash[entry[0]] = entry[1]
+    end
   end
 
   def update_price()
+    param = ""
     @init_stock_code_array.size.times { |x|
       puts @init_stock_code_array[x]
     }
@@ -69,6 +76,7 @@ end
 
 qq = Quote.new ["9933", "2330"]
 qq.update_price
+puts qq.@exchange_hash
 
 my_port = Portfolio.new
 pos_9933 = Position.new "9933"
