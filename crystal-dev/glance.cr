@@ -4,6 +4,38 @@ require "csv"
 require "option_parser"
 
 
+class TableWatcher
+  # watch and download remote table periodically.
+  def initialize()
+    puts
+  end
+
+  def refresh_exchange()
+    exchange_hash = Hash(String, String).new
+    exchange_raw_csv = "https://raw.githubusercontent.com/ktlast/market-envs/master/stock-code-exchange.tw.csv"
+    response = HTTP::Client.get exchange_raw_csv
+
+    if response.status_code != "200"
+      puts "HTTP ERROR: got status code: [#{response.status_code}] (CSV URL: [#{exchange_raw_csv}])"
+      return exchange_hash
+    end
+    
+    CSV.each_row(response.body) do |row|
+      if row.size == 0
+        next
+      end
+      exchange_hash[row[0]] = row[1]
+      return exchange_hash
+    end
+  end 
+
+  def download_example_portfolio()
+    puts
+  end
+end
+
+
+
 class Portfolio
   # property exchange_table : Hash(String, String)
   # property positions : Hash(String, Hash(String, String | Int32 | Float32))
@@ -78,7 +110,7 @@ class Portfolio
     puts @total_pl.format(",").to_s.rjust(68)
   end
 
-  def start()
+  def watch_forever()
     while true
       puts "\33c\e[3J"
       self.update_quote
@@ -138,7 +170,6 @@ CSV.each_row(File.read(portfolio_csv_path)) do |row|
 end
 
 
-my_portfolio.start
 
 
 
