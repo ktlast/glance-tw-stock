@@ -3,11 +3,38 @@ require "json"
 require "colorize"
 
 
-def color_split(input_num : Int32 | Float32, digit=3)
-  puts
+def colored_string(input_num : Int32 | Float32, digits=3)
+  neg_flag = false
+  if input_num < 0 
+    neg_flag = true
+  end
+  whole_part = input_num.abs.to_i
+  whole_part_length = whole_part.to_s.size
 
+  if whole_part_length < digits
+    under_thousand_part = (whole_part.to_s.byte_slice(0, whole_part_length)) #.colorize.underline
+    if neg_flag
+      # p "[case 1] - input_num: #{input_num}, above: nil, under: #{under_thousand_part}"
+      return "-" + "#{under_thousand_part.colorize.underline}"
+    else
+      # p "[case 2] - input_num: #{input_num}, above: nil, under: #{under_thousand_part}"
+      return "#{under_thousand_part.colorize.underline}"
+    end
+    
+  else
+    above_thousand_part = (whole_part.to_s.byte_slice(0, whole_part_length-digits)) #.colorize.green
+    under_thousand_part = (whole_part.to_s.byte_slice(whole_part_length-digits, digits)) #.colorize.underline
+    if neg_flag
+      # p "[case 3] - input_num: #{input_num}, above: #{above_thousand_part}, under: #{under_thousand_part}"
+      return "#{("-"+above_thousand_part).colorize.green}\
+             #{under_thousand_part.colorize.underline}"
+    else
+      # p "[case 4] - input_num: #{input_num}, above: #{above_thousand_part}, under: #{under_thousand_part}"
+      return "#{above_thousand_part.colorize.magenta}"\
+             + "#{under_thousand_part.colorize.underline}"
+    end
+  end
 end
-
 
 
 class Portfolio
@@ -65,33 +92,50 @@ class Portfolio
   end
 
   def print_out()
+    # puts "#{"Code".ljust(8)}#{"# shares".rjust(9)}#{"@ Cost".rjust(11)}#{"Bid".rjust(10)}#{"Ask".rjust(10)}#{"P/L".rjust(12)}"
+    # @positions.keys.each do |stock_code|
+    #   entry_line = "#{stock_code.ljust(8)}\
+    #     #{colored_string(@positions[stock_code]["shares"]).rjust(9).ljust(15)}\
+    #     #{@positions[stock_code]["at_cost"].to_s.rjust(11)}\
+    #     #{@positions[stock_code]["bid"].to_s.rjust(10)}\
+    #     #{@positions[stock_code]["ask"].to_s.rjust(10)}\
+    #     #{colored_string(@positions[stock_code]["PL"]).rjust(25).ljust(25)}"
+    #   puts entry_line
+    # end
+    # puts "-"*60
+    # puts colored_string(@total_pl).rjust(60)
+
     # Title
-    puts "#{"Code".ljust(8)}#{"# shares".rjust(9)}#{"@ Cost".rjust(10)}#{"Bid".rjust(9)}#{"Ask".rjust(10)}#{"P/L".rjust(12)}"
+    puts "#{"Code".ljust(8)}#{"# Shares".rjust(9)}#{"@ Cost".rjust(11)}#{"Bid".rjust(10)}#{"Ask".rjust(10)}#{"$ P/L".rjust(12)}"
     
     # entries
     @positions.keys.each do |stock_code|
       entry_line = "#{stock_code.ljust(8)}\
-        #{@positions[stock_code]["shares"].to_s.rjust(9)}\
-        #{@positions[stock_code]["at_cost"].to_s.rjust(10)}\
-        #{@positions[stock_code]["bid"].to_s.rjust(9)}\
+        #{@positions[stock_code]["shares"].format(",").rjust(9)}\
+        #{@positions[stock_code]["at_cost"].to_s.rjust(11)}\
+        #{@positions[stock_code]["bid"].to_s.rjust(10)}\
         #{@positions[stock_code]["ask"].to_s.rjust(10)}\
-        #{@positions[stock_code]["PL"].to_s.rjust(12)}"
+        #{@positions[stock_code]["PL"].format(",").rjust(12)}"
       puts entry_line
     end
-    puts "-"*58
-    puts @total_pl.to_s.rjust(58)
+    puts "-"*60
+    puts @total_pl.format(",").to_s.rjust(60)
+  end
+
+  def start()
+    while true
+      puts "\33c\e[3J"
+      self.update_quote
+      self.print_out
+      sleep 30
+    end
   end
 end
 
 pp = Portfolio.new
 # puts pp.@exchange_table
 pp.add_position("9933", 4000, 46.1)
-pp.add_position("6248", 10000, 20.95)
+pp.add_position("6248", 10000, 21.049)
+pp.start
 
-while true
-  puts "\33c\e[3J"
-  pp.update_quote
-  pp.print_out
-  sleep 30
-end
 
