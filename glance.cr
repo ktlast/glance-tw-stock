@@ -73,6 +73,7 @@ class RemoteDataCache
     if ! refresh_only
       return File.read(@meta_hash[meta_key]["file_path"].to_s)
     end
+    return ""
 
   end
 end 
@@ -105,6 +106,7 @@ class Portfolio
 
 
   def update_position()
+    @code_params = Set(String).new
     CSV.each_row(@data_source.get_data("portfolio")) do |row|
       if row.size == 0
         next
@@ -125,10 +127,10 @@ class Portfolio
     end
   end
 
-  def remove_position(stock_code : String)
-    @code_params.delete("#{@exchange_table[stock_code]}_#{stock_code}.tw")
-    @positions.delete(stock_code)
-  end
+  # def remove_position(stock_code : String)
+  #   @code_params.delete("#{@exchange_table[stock_code]}_#{stock_code}.tw")
+  #   @positions.delete(stock_code)
+  # end
 
   def update_quote()
     @total_pl = 0
@@ -211,13 +213,13 @@ option_parser = OptionParser.parse do |parser|
     if input_pos.size != 3
       position = "#{input_pos[0]},0,0"
     end
-    File.write(portfolio_data_source.get_meta("portfolio", "file_path").to_s, (content.gsub(/#{input_pos[0]},[\.0-9,]+\n/, "") + "\n#{position}").gsub(/\n\n+/, "\n"))
+    File.write(portfolio_data_source.get_meta("portfolio", "file_path").to_s, (content.gsub(/#{input_pos[0]},[\.0-9,]+\n?/, "") + "\n#{position}").gsub(/\n\n+/, "\n"))
     exit
   end
 
   parser.on "-d STOCK_CODE", "Delete a Position entry. format: <code>" do |stock_code|
     content = portfolio_data_source.get_data("portfolio").to_s
-    File.write(portfolio_data_source.get_meta("portfolio", "file_path").to_s, content.gsub(/#{stock_code},[\.0-9,]+\n/, "").gsub(/\n\n+/, "\n"))
+    File.write(portfolio_data_source.get_meta("portfolio", "file_path").to_s, content.gsub(/#{stock_code}[\.0-9,]*\n?/, "").gsub(/\n\n+/, "\n"))
     exit
   end
 
@@ -230,9 +232,10 @@ option_parser = OptionParser.parse do |parser|
     my_portfolio.update_interval = interval.to_i
   end
   
-  # parser.on "-f PORTFOLIO_CSV", "Read PORTFOLIO_CSV to collect your Portfolio." do |portfolio_csv|
-  #   portfolio_csv_path = portfolio_csv
-  # end
+  parser.on "start", "Start update quotes forever based on portfolio." do
+    my_portfolio.watch_forever
+  end
+
   parser.missing_option do |option_flag|
     STDERR.puts "ERROR: #{option_flag} is missing something."
     STDERR.puts ""
