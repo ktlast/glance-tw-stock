@@ -1,6 +1,8 @@
 # self defined 
 .meta*
 .*.json
+*.dwarf
+*.o
 
 # Logs
 logs
