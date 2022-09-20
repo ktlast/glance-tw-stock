@@ -152,16 +152,9 @@ class Portfolio
 
   def print_out()
     puts "╭#{"─" * 70}╮"
-    #╭───────────────────────────────────────────────────╮
-# ┊ Node  ┊ NodeType ┊ Addresses              ┊ State  ┊
-# ╞┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╡
-# ┊ nodeA ┊ COMBINED ┊ 10.50.2.4:3366 (PLAIN) ┊ Online ┊
-# ┊ nodeB ┊ SATELLITE┊ 10.50.2.5:3366 (PLAIN) ┊ Online ┊
-# ┊ nodeC ┊ SATELLITE┊ 10.50.2.6:3366 (PLAIN) ┊ Online ┊
-# ╰────────────────────────────────────────────────────╯
     # Title
     puts "┊ #{"Code".ljust(9)}#{"# Shares".rjust(10)}#{"@ Cost".rjust(13)}#{"*Bid".rjust(11)}#{"Ask".rjust(11)}#{"$ P/L".rjust(14)} ┊"
-    # puts "-"*68
+    # h-line
     puts "╞#{"┄" * 70}╡"
     # entries
     @positions.keys.each do |stock_code|
@@ -173,7 +166,9 @@ class Portfolio
         #{@positions[stock_code]["PL"].format(",").rjust(14)} ┊"
       puts entry_line
     end
+    # h-line for total PL
     puts "╞#{"=" * 70}╡"
+    # total PL
     puts "┊ TOTAL: #{@total_pl.format(",").to_s.rjust(61)} ┊"
     puts "╰#{"─" * 70}╯"
   end
