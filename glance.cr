@@ -151,21 +151,31 @@ class Portfolio
   end
 
   def print_out()
+    puts "╭#{"─" * 70}╮"
+    #╭───────────────────────────────────────────────────╮
+# ┊ Node  ┊ NodeType ┊ Addresses              ┊ State  ┊
+# ╞┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╡
+# ┊ nodeA ┊ COMBINED ┊ 10.50.2.4:3366 (PLAIN) ┊ Online ┊
+# ┊ nodeB ┊ SATELLITE┊ 10.50.2.5:3366 (PLAIN) ┊ Online ┊
+# ┊ nodeC ┊ SATELLITE┊ 10.50.2.6:3366 (PLAIN) ┊ Online ┊
+# ╰────────────────────────────────────────────────────╯
     # Title
-    puts "#{"Code".ljust(9)}#{"# Shares".rjust(10)}#{"@ Cost".rjust(13)}#{"*Bid".rjust(11)}#{"Ask".rjust(11)}#{"$ P/L".rjust(14)}"
-    puts "-"*68
+    puts "┊ #{"Code".ljust(9)}#{"# Shares".rjust(10)}#{"@ Cost".rjust(13)}#{"*Bid".rjust(11)}#{"Ask".rjust(11)}#{"$ P/L".rjust(14)} ┊"
+    # puts "-"*68
+    puts "╞#{"┄" * 70}╡"
     # entries
     @positions.keys.each do |stock_code|
-      entry_line = "#{stock_code.ljust(9)}\
+      entry_line = "┊ #{stock_code.ljust(9)}\
         #{@positions[stock_code]["shares"].format(",").rjust(10)}\
         #{@positions[stock_code]["at_cost"].to_s.rjust(13)}\
         #{@positions[stock_code]["bid"].to_s.rjust(11)}\
         #{@positions[stock_code]["ask"].to_s.rjust(11)}\
-        #{@positions[stock_code]["PL"].format(",").rjust(14)}"
+        #{@positions[stock_code]["PL"].format(",").rjust(14)} ┊"
       puts entry_line
     end
-    puts "="*68
-    puts @total_pl.format(",").to_s.rjust(68)
+    puts "╞#{"=" * 70}╡"
+    puts "┊ TOTAL: #{@total_pl.format(",").to_s.rjust(61)} ┊"
+    puts "╰#{"─" * 70}╯"
   end
 
   def watch_forever()
