@@ -66,9 +66,13 @@ class RemoteDataCache
       return ""
     end
     if ! @meta_hash[meta_key]["url"].to_s.empty?
-      if self.is_data_expired(meta_key, 86400) || ! File.exists?(@meta_hash[meta_key]["file_path"].to_s) || 
+      if self.is_data_expired(meta_key, 86400) || ! File.exists?(@meta_hash[meta_key]["file_path"].to_s)
         self.download_data(meta_key)
       end
+    end
+    if ! File.exists?(@meta_hash[meta_key]["file_path"].to_s)
+      puts "init file"
+      File.write(@meta_hash[meta_key]["file_path"].to_s, "")
     end
     if ! refresh_only
       return File.read(@meta_hash[meta_key]["file_path"].to_s)
