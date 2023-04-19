@@ -55,3 +55,10 @@
 # 修改更新週期 (秒)
 ./glance -i 10 start
 ```
+
+---
+
+### Update
+- 原本是用 crystal lang 測試一下，後來改來測試 Rust，順便修改一下功能。不過不影響包出來的 binary
+
+
