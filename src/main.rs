@@ -1,38 +1,105 @@
-use std::io;
-use std::cmp::Ordering;
-use rand::Rng;
+use reqwest::blocking::{Client, Response};
+use std::collections::HashMap;
+use std::error::Error;
+use std::io::{self, Write};
+use std::thread;
+use std::time::Duration;
 
-fn main() {
-    println!("Guess the number!");
-
-    let secret_number = rand::thread_rng().gen_range(1..=100);
-
-    // println!("The secret number is: {secret_number}");
+fn main() -> Result<(), Box<dyn Error>> {
+    // Set up initial adjustable params
+    let base_url = "https://jsonplaceholder.typicode.com";
+    let endpoint = "/posts";
+    let mut params = HashMap::new();
+    params.insert(String::from("userId"), String::from("1"));
 
     loop {
-        println!("Please input your guess.");
+        // Read user-provided argument from stdin
+        print!("Enter command (append, update, delete, or q to quit): ");
+        io::stdout().flush()?;
+        let mut command = String::new();
+        io::stdin().read_line(&mut command)?;
+        let command = command.trim();
 
-        let mut guess = String::new();
+        match command {
+            "append" => {
+                // Read user-provided argument from stdin
+                print!("Enter new parameter key: ");
+                io::stdout().flush()?;
+                let mut key = String::new();
+                io::stdin().read_line(&mut key)?;
+                let key = key.trim().to_string();
 
-        io::stdin()
-            .read_line(&mut guess)
-            .expect("Failed to read line");
+                print!("Enter new parameter value: ");
+                io::stdout().flush()?;
+                let mut value = String::new();
+                io::stdin().read_line(&mut value)?;
+                let value = value.trim().to_string();
 
-        let guess: u32 = match guess.trim().parse() {
-            Ok(num) => num,
-            Err(_) => continue,
-        };
+                // Append new parameter to adjustable params
+                params.insert(key.to_string(), value.to_string());
+            },
+            "update" => {
+                // Read user-provided argument from stdin
+                print!("Enter parameter key to update: ");
+                io::stdout().flush()?;
+                let mut key = String::new();
+                io::stdin().read_line(&mut key)?;
+                let key = key.trim().to_string();
 
-        println!("You guessed: {}", guess);
-    
-        match guess.cmp(&secret_number) {
-            Ordering::Less => println!("Too small!"),
-            Ordering::Greater => println!("Too big!"),
-            Ordering::Equal => {
-                println!("You win!");
+                print!("Enter new parameter value: ");
+                io::stdout().flush()?;
+                let mut value = String::new();
+                io::stdin().read_line(&mut value)?;
+                let value = value.trim().to_string();
+
+                // Update existing parameter in adjustable params
+                if let Some(v) = params.get_mut(&key) {
+                    *v = value;
+                } else {
+                    println!("Key not found");
+                }
+            },
+            "delete" => {
+                // Read user-provided argument from stdin
+                print!("Enter parameter key to delete: ");
+                io::stdout().flush()?;
+                let mut key = String::new();
+                io::stdin().read_line(&mut key)?;
+                let key = key.trim().to_string();
+
+                // Remove parameter from adjustable params
+                params.remove(&key);
+            },
+            "q" => {
                 break;
+            },
+            _ => {
+                println!("Invalid command");
+                continue;
             }
         }
+
+        // Create a reqwest Client
+        let client = Client::new();
+
+        // Build the request with adjustable params
+        let request = client
+            .get(&format!("{}{}", base_url, endpoint))
+            .query(&params)
+            .build()?;
+
+        // Send the request and get the response
+        let response: Response = client.execute(request)?;
+
+        // Get the response body as text
+        let body = response.text()?;
+
+        // Print the response body
+        println!("{}", body);
+
+        // Wait for fixed interval before next request
+        thread::sleep(Duration::from_secs(1));
     }
 
+    Ok(())
 }
