@@ -4,6 +4,7 @@ use std::error::Error;
 use std::io::{self, Write};
 use std::thread;
 use std::time::Duration;
+use std::time::Instant;
 
 fn main() -> Result<(), Box<dyn Error>> {
     // Set up initial adjustable params
@@ -11,6 +12,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     let endpoint = "/posts";
     let mut params = HashMap::new();
     params.insert(String::from("userId"), String::from("1"));
+
+    // Set up rate limit
+    let rate_limit = Duration::from_secs(1);
+    let last_request_time = Instant::now() - rate_limit;
 
     loop {
         // Read user-provided argument from stdin
@@ -77,6 +82,13 @@ fn main() -> Result<(), Box<dyn Error>> {
                 println!("Invalid command");
                 continue;
             }
+        }
+
+        // Calculate elapsed time since last request
+        let elapsed_time = Instant::now() - last_request_time;
+        if elapsed_time < rate_limit {
+            // Wait for the remaining time before next request
+            thread::sleep(rate_limit - elapsed_time);
         }
 
         // Create a reqwest Client
