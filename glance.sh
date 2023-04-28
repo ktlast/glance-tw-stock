@@ -99,56 +99,66 @@ function watching_data () {
   local DELTA_TARGET=ask
   local CURRENT_SHARES=""
   local CURRENT_COST=""
+  local CURRENT_PL=0
   echo "Starting Watching ..."
   while true; do 
     DELTA=$(($(date +%s) - TS))
     if [[ ${DELTA} -gt ${REFRESH_INTERVAL} ]] ; then 
       clear
       
+      printf "refresh in (%.2f)s\n\n" "${REFRESH_INTERVAL}"
       # print header
-      _format_frame_top 51
-      printf "┊ %-10s ┊ %10s ┊ %10s ┊ %10s ┊\n" "Stock" "Ask" "Bid" "P/L"
-      _format_frame_hline 51
+      _format_frame_top 57
+      printf "┊ %10s ┊ %10s ┊ %10s ┊ %16s ┊\n" "Stock" "Bid" "Ask" "P/L"
+      _format_frame_hline 57
       # fetch new data
       RESULT=$(curl -s "${TSE_API_URL_PREFIX}$(_concatenate_stock)" | jq '.msgArray | map({c,a,b})')
       for DATA in $(echo "${RESULT}" | jq -rc '.[] | flatten | join(" ")' ) ; do
 
         # deal with stock code (index = 0)
-        if [[ "${GLANCE_STOCK_ARRAY[*]}" =~ ${DATA} ]] ; then
+        if [[ "${GLANCE_STOCK_ARRAY[*]}" =~ ${DATA} ]] && [[ ${LOOP_INDEX} -eq 0 ]] ; then
           local CURRENT_STOCK=${DATA}
-          [[ $(_get_shares "${CURRENT_STOCK}") -gt 0 ]] && DELTA_TARGET=ask  # 多單看賣價
-          [[ $(_get_shares "${CURRENT_STOCK}") -lt 0 ]] && DELTA_TARGET=bid  # 空單看買價
-          echo "${CURRENT_STOCK}: ${DELTA_TARGET}"
-          continue
+          CURRENT_SHARES=$(_get_shares "${CURRENT_STOCK}")
+          CURRENT_COST=$(_get_cost "${CURRENT_STOCK}")
+          [[ ${CURRENT_SHARES} -gt 0 ]] && DELTA_TARGET=bid  # 預計平空單看賣價
+          [[ ${CURRENT_SHARES} -lt 0 ]] && DELTA_TARGET=ask  # 預計平多單看買價
+          #echo "${CURRENT_STOCK}: ${DELTA_TARGET}"
+          printf "| %10s " "${DATA}"
         fi
 
         # deal with ask (index = 1)
-        if [[ ${LOOP_INDEX} -eq 1 ]] && [[ ${DELTA_TARGET} == "ask" ]]; then
-          # CURRENT_ASK=${DATA}
-          echo "stock: ${CURRENT_STOCK} | index: ${LOOP_INDEX} | target: ${DELTA_TARGET} | ASK: ${DATA} | ($(_get_shares ${CURRENT_STOCK})@$(_get_cost ${CURRENT_STOCK}))"
-          continue
+        if [[ ${LOOP_INDEX} -eq 1 ]] ; then
+          CURRENT_ASK=$(_split_underscore ${DATA} 0)
+          [[ ${DELTA_TARGET} == "ask" ]] && CURRENT_PL=$(echo "${CURRENT_SHARES} * (${CURRENT_ASK} - ${CURRENT_COST}) " | bc -l)
+          # echo "stock: ${CURRENT_STOCK} | index: ${LOOP_INDEX} | target: ${DELTA_TARGET} | ASK: ${DATA} | ($(_get_shares ${CURRENT_STOCK})@$(_get_cost ${CURRENT_STOCK}))"
+          printf " %11.2f " "${CURRENT_ASK}"   # ask
         fi
 
         # deal with bid (index = 2)
-        if [[ ${LOOP_INDEX} -eq 2 ]] && [[ ${DELTA_TARGET} == "bid" ]]; then
-          # CURRENT_BID=${DATA}
-          echo "stock: ${CURRENT_STOCK} | index: ${LOOP_INDEX} | target: ${DELTA_TARGET} | BID: ${DATA} | ($(_get_shares ${CURRENT_STOCK})@$(_get_cost ${CURRENT_STOCK}))"
-          LOOP_INDEX=0
-          continue
+        if [[ ${LOOP_INDEX} -eq 2 ]] ; then
+          CURRENT_BID=$(_split_underscore ${DATA} 0)
+          [[ ${DELTA_TARGET} == "bid" ]] && CURRENT_PL=$(echo "${CURRENT_SHARES} * (${CURRENT_BID} - ${CURRENT_COST}) " | bc -l)
+          # echo "stock: ${CURRENT_STOCK} | index: ${LOOP_INDEX} | target: ${DELTA_TARGET} | BID: ${DATA} | ($(_get_shares ${CURRENT_STOCK})@$(_get_cost ${CURRENT_STOCK}))"
+          printf " %11.2f " "${CURRENT_BID}"   # ask
         fi
 
-        if [[ ${LOOP_INDEX} -ge 2 ]] ; then
-           LOOP_INDEX=0
-        else
-          (( LOOP_INDEX++ ))
+         (( LOOP_INDEX++ ))
+
+        if [[ ${LOOP_INDEX} -eq 3 ]] ; then
+          printf "%'18.0f |\n" "${CURRENT_PL}" 
+          # printf " %11s |\n" "${CURRENT_PL}" 
+          LOOP_INDEX=0
         fi
-        
       done
       TS=$(date +%s)
-    fi
+      _format_frame_bottom 57
 
-    echo
-    read -r -t "${REFRESH_INTERVAL}" -p "(q)uit: " INPUT || printf ""
+      echo
+      echo
+      echo
+    fi
+    printf "\r(q)uit: "
+    read -r -t "${REFRESH_INTERVAL}" INPUT  || true
     case "$INPUT" in
       q)
         break 
@@ -186,7 +196,7 @@ function main(){
         ;;
       n | new)
         read -r -p " > Add stock code: " NEW_STOCK
-        if [[ ! ${NEW_STOCK} =~ ^[1-9][0-9][0-9][0-9]$ ]] ; then
+        if [[ ! ${NEW_STOCK} =~ ^[0-9][0-9][0-9][0-9]$ ]] ; then
           echo "stock code must be 4 digits. Cancelled."
           unset NEW_SHARES NEW_SHARES NEW_COST
           continue
