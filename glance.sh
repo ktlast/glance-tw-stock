@@ -6,7 +6,7 @@
 set -e
 TSE_API_URL_PREFIX='https://mis.twse.com.tw/stock/api/getStockInfo.jsp?json=1&delay=0&ex_ch='
 REFRESH_INTERVAL=${1:-3}
-OUTPUT_ENV_FILE=${2:-"./glance.sh.env"}
+OUTPUT_ENV_FILE=${2:-"./.glance.sh.env"}
 
 function _die () {
   echo "[ERROR] $*" && exit 1
@@ -51,6 +51,33 @@ function _concatenate_stock () {
   echo ${STOCK_LIST}
 }
 
+function _format_frame_top (){
+  local FRAME_WIDTH
+  FRAME_WIDTH="$1"
+
+  printf "╭"
+  printf "─%.0s" $(seq 1 "${FRAME_WIDTH}")
+  printf "╮\n"
+}
+
+function _format_frame_hline (){
+  local FRAME_WIDTH
+  FRAME_WIDTH="$1"
+
+  printf "╞"
+  printf "=%.0s" $(seq 1 "${FRAME_WIDTH}")
+  printf "╡\n"
+}
+
+function _format_frame_bottom (){
+  local FRAME_WIDTH
+  FRAME_WIDTH="$1"
+
+  printf "╰"
+  printf "─%.0s" $(seq 1 "${FRAME_WIDTH}")
+  printf "╯\n"
+}
+
 function check_shell () {
   command -v "declare" >/dev/null 2>&1 || _die "command: [declare] not found. Please use bash version >= 4"
 }
@@ -68,19 +95,60 @@ function gather_meta () {
 function watching_data () {
   [[ -z ${GLANCE_STOCK_ARRAY} ]] && echo "[x] | No stock code found. Please add stock code first." && return 0
   local TS
+  local LOOP_INDEX=0  # up to 2 (0~2: length=3) -> length of: {c,a,b}
+  local DELTA_TARGET=ask
+  local CURRENT_SHARES=""
+  local CURRENT_COST=""
   echo "Starting Watching ..."
   while true; do 
     DELTA=$(($(date +%s) - TS))
     if [[ ${DELTA} -gt ${REFRESH_INTERVAL} ]] ; then 
       clear
-      # printf "%s\n" "${TSE_API_URL_PREFIX}$(_concatenate_stock)"
-      RESULT=$(curl -s "${TSE_API_URL_PREFIX}$(_concatenate_stock)" | jq '.msgArray | map({c,a,b,y,z})')
-      echo "${RESULT}" | jq '.[] | map(.c + " " + .a + " " + .b + " " + .y + " " + .z)'
+      
+      # print header
+      _format_frame_top 51
+      printf "┊ %-10s ┊ %10s ┊ %10s ┊ %10s ┊\n" "Stock" "Ask" "Bid" "P/L"
+      _format_frame_hline 51
+      # fetch new data
+      RESULT=$(curl -s "${TSE_API_URL_PREFIX}$(_concatenate_stock)" | jq '.msgArray | map({c,a,b})')
+      for DATA in $(echo "${RESULT}" | jq -rc '.[] | flatten | join(" ")' ) ; do
+
+        # deal with stock code (index = 0)
+        if [[ "${GLANCE_STOCK_ARRAY[*]}" =~ ${DATA} ]] ; then
+          local CURRENT_STOCK=${DATA}
+          [[ $(_get_shares "${CURRENT_STOCK}") -gt 0 ]] && DELTA_TARGET=ask  # 多單看賣價
+          [[ $(_get_shares "${CURRENT_STOCK}") -lt 0 ]] && DELTA_TARGET=bid  # 空單看買價
+          echo "${CURRENT_STOCK}: ${DELTA_TARGET}"
+          continue
+        fi
+
+        # deal with ask (index = 1)
+        if [[ ${LOOP_INDEX} -eq 1 ]] && [[ ${DELTA_TARGET} == "ask" ]]; then
+          # CURRENT_ASK=${DATA}
+          echo "stock: ${CURRENT_STOCK} | index: ${LOOP_INDEX} | target: ${DELTA_TARGET} | ASK: ${DATA} | ($(_get_shares ${CURRENT_STOCK})@$(_get_cost ${CURRENT_STOCK}))"
+          continue
+        fi
+
+        # deal with bid (index = 2)
+        if [[ ${LOOP_INDEX} -eq 2 ]] && [[ ${DELTA_TARGET} == "bid" ]]; then
+          # CURRENT_BID=${DATA}
+          echo "stock: ${CURRENT_STOCK} | index: ${LOOP_INDEX} | target: ${DELTA_TARGET} | BID: ${DATA} | ($(_get_shares ${CURRENT_STOCK})@$(_get_cost ${CURRENT_STOCK}))"
+          LOOP_INDEX=0
+          continue
+        fi
+
+        if [[ ${LOOP_INDEX} -ge 2 ]] ; then
+           LOOP_INDEX=0
+        else
+          (( LOOP_INDEX++ ))
+        fi
+        
+      done
       TS=$(date +%s)
     fi
 
     echo
-    read -r -t ${REFRESH_INTERVAL} -p "(q)uit: " INPUT || printf ""
+    read -r -t "${REFRESH_INTERVAL}" -p "(q)uit: " INPUT || printf ""
     case "$INPUT" in
       q)
         break 
@@ -94,11 +162,13 @@ function watching_data () {
 
 function main(){
   check_shell
-  check_commands "stty" "jq" "curl"
+  check_commands "stty" "jq" "curl" "seq"
   gather_meta
 
+  HELP_COUNTER=0
   GLANCE_STOCK_ARRAY=()
   trap "echo :" SIGINT
+  echo "Press (h) for help."
   while true
   do
     read -r -p ": " INPUT
@@ -122,7 +192,7 @@ function main(){
           continue
         fi
         read -r -p " > with shares: " NEW_SHARES
-        if [[ ! ${NEW_SHARES} =~ ^[0-9]+$ ]] ; then
+        if [[ ! ${NEW_SHARES} =~ ^-?[0-9]+$ ]] ; then
           echo "Shares must be a number. Cancelled."
           unset NEW_SHARES NEW_SHARES NEW_COST
           continue
@@ -139,11 +209,13 @@ function main(){
         unset NEW_STOCK NEW_SHARES NEW_COST
         ;;
       l | list)
-        echo "Stock list:"
-        echo "-------------------"
+        _format_frame_top 37
+        printf "┊ %s\t%9s %s %9s ┊\n" "Stock Code" "Shares" "@" "Cost"
+        _format_frame_hline 37
         for STOCK in "${GLANCE_STOCK_ARRAY[@]}"; do
-          printf "%s\t%d @ %6.2f\n" "${STOCK}" "$(_get_shares "${STOCK}")" "$(_get_cost "${STOCK}")"
+          printf "┊ %10s\t%'9d @ %9.2f ┊\n" "${STOCK}" "$(_get_shares "${STOCK}")" "$(_get_cost "${STOCK}")"
         done
+        _format_frame_bottom 37
         ;;
       d | delete)
         read -r -p " > Delete stock code: " DEL_STOCK
@@ -168,11 +240,13 @@ function main(){
         echo "Importing from [${OUTPUT_ENV_FILE}]"
         source "${OUTPUT_ENV_FILE}"
         ;;
-      f | env_file)
+      c | config)
         echo "Export ENV @ path: [${OUTPUT_ENV_FILE}]"
         ;;
       *)
-        echo "[(n)ew | (l)ist | (d)elete | (w)atch | (q)uit | (h)elp]"
+        (( HELP_COUNTER+=1 ))
+        [[ ${HELP_COUNTER} -ge 3 ]] && echo "[(n)ew | (l)ist | (d)elete | (w)atch | (q)uit | (h)elp]" && HELP_COUNTER=0
+        :
         ;;
     esac
   done
