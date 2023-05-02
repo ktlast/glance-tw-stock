@@ -112,7 +112,7 @@ function watching_data () {
       printf "┊ %10s ┊ %10s ┊ %10s ┊ %16s ┊\n" "Stock" "Bid" "Ask" "P/L"
       _format_frame_hline 57
       # fetch new data
-      RESULT=$(curl -s "${TSE_API_URL_PREFIX}$(_concatenate_stock)" | jq '.msgArray | map({c,a,b})')
+      RESULT=$(curl -s "${TSE_API_URL_PREFIX}$(_concatenate_stock)" | jq '.msgArray | map({c,b,a})')
       for DATA in $(echo "${RESULT}" | jq -rc '.[] | flatten | join(" ")' ) ; do
 
         # deal with stock code (index = 0)
@@ -120,26 +120,26 @@ function watching_data () {
           local CURRENT_STOCK=${DATA}
           CURRENT_SHARES=$(_get_shares "${CURRENT_STOCK}")
           CURRENT_COST=$(_get_cost "${CURRENT_STOCK}")
-          [[ ${CURRENT_SHARES} -gt 0 ]] && DELTA_TARGET=bid  # 預計平空單看賣價
-          [[ ${CURRENT_SHARES} -lt 0 ]] && DELTA_TARGET=ask  # 預計平多單看買價
-          #echo "${CURRENT_STOCK}: ${DELTA_TARGET}"
+          [[ ${CURRENT_SHARES} -gt 0 ]] && DELTA_TARGET=bid  # 預計平多單看買價
+          [[ ${CURRENT_SHARES} -lt 0 ]] && DELTA_TARGET=ask  # 預計平空單看賣價
+          # echo "${CURRENT_STOCK}: ${DELTA_TARGET}"
           printf "| %10s " "${DATA}"
         fi
 
-        # deal with ask (index = 1)
+        # deal with bid (index = 1)
         if [[ ${LOOP_INDEX} -eq 1 ]] ; then
+          CURRENT_BID=$(_split_underscore ${DATA} 0)
+          [[ ${DELTA_TARGET} == "bid" ]] && CURRENT_PL=$(echo "${CURRENT_SHARES} * (${CURRENT_BID} - ${CURRENT_COST}) " | bc -l)
+          # echo "stock: ${CURRENT_STOCK} | index: ${LOOP_INDEX} | target: ${DELTA_TARGET} | BID: ${DATA} | ($(_get_shares ${CURRENT_STOCK})@$(_get_cost ${CURRENT_STOCK}))"
+          printf " %11.2f " "${CURRENT_BID}"   # bid
+        fi
+
+        # deal with ask (index = 2)
+        if [[ ${LOOP_INDEX} -eq 2 ]] ; then
           CURRENT_ASK=$(_split_underscore ${DATA} 0)
           [[ ${DELTA_TARGET} == "ask" ]] && CURRENT_PL=$(echo "${CURRENT_SHARES} * (${CURRENT_ASK} - ${CURRENT_COST}) " | bc -l)
           # echo "stock: ${CURRENT_STOCK} | index: ${LOOP_INDEX} | target: ${DELTA_TARGET} | ASK: ${DATA} | ($(_get_shares ${CURRENT_STOCK})@$(_get_cost ${CURRENT_STOCK}))"
           printf " %11.2f " "${CURRENT_ASK}"   # ask
-        fi
-
-        # deal with bid (index = 2)
-        if [[ ${LOOP_INDEX} -eq 2 ]] ; then
-          CURRENT_BID=$(_split_underscore ${DATA} 0)
-          [[ ${DELTA_TARGET} == "bid" ]] && CURRENT_PL=$(echo "${CURRENT_SHARES} * (${CURRENT_BID} - ${CURRENT_COST}) " | bc -l)
-          # echo "stock: ${CURRENT_STOCK} | index: ${LOOP_INDEX} | target: ${DELTA_TARGET} | BID: ${DATA} | ($(_get_shares ${CURRENT_STOCK})@$(_get_cost ${CURRENT_STOCK}))"
-          printf " %11.2f " "${CURRENT_BID}"   # ask
         fi
 
          (( LOOP_INDEX++ ))
@@ -170,6 +170,28 @@ function watching_data () {
   done
 }
 
+function help_message () {
+  echo "help: "
+  echo 
+  echo "[(n)ew | (l)ist | (d)elete | (w)atch | (q)uit | (h)elp | (i)mport | (e)xport]"
+  echo 
+  echo "  - (n)ew: add new stock target with code, shares and avg cost"
+  echo 
+  echo "  - (l)ist: list all stock target"
+  echo 
+  echo "  - (d)elete: delete stock target"
+  echo 
+  echo "  - (w)atch: start watching"
+  echo 
+  echo "  - (q)uit: quit"
+  echo 
+  echo "  - (h)elp: show this message"
+  echo 
+  echo "  - (i)mport: import stock targets from env file"
+  echo 
+  echo "  - (e)xport: export/backup stock targets to env file"
+}
+
 function main(){
   check_shell
   check_commands "stty" "jq" "curl" "seq"
@@ -192,7 +214,7 @@ function main(){
         break
         ;;
       h | help)
-        echo "[(n)ew | (l)ist | (d)elete | (w)atch | (q)uit | (h)elp]"
+        help_message
         ;;
       n | new)
         read -r -p " > Add stock code: " NEW_STOCK
@@ -208,7 +230,7 @@ function main(){
           continue
         fi
         read -r -p " > @ avg cost: " NEW_COST
-        if [[ ! ${NEW_COST} =~ ^[0-9]{1,4}(\.[0-9]{2})?$ ]] ; then
+        if [[ ! ${NEW_COST} =~ ^[0-9]{1,4}(\.[0-9]{1,2})?$ ]] ; then
           echo "AVG Cost not valid. Cancelled."
           unset NEW_SHARES NEW_SHARES NEW_COST
           continue
@@ -255,7 +277,8 @@ function main(){
         ;;
       *)
         (( HELP_COUNTER+=1 ))
-        [[ ${HELP_COUNTER} -ge 3 ]] && echo "[(n)ew | (l)ist | (d)elete | (w)atch | (q)uit | (h)elp]" && HELP_COUNTER=0
+        [[ $((HELP_COUNTER%3)) -eq 0 ]] && echo "Press (h) for help."
+        [[ ${HELP_COUNTER} -ge 10 ]] && help_message && HELP_COUNTER=0
         :
         ;;
     esac
