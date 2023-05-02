@@ -93,7 +93,7 @@ function gather_meta () {
 }
 
 function watching_data () {
-  [[ -z ${GLANCE_STOCK_ARRAY} ]] && echo "[x] | No stock code found. Please add stock code first." && return 0
+  [[ -z ${GLANCE_STOCK_ARRAY} ]] && echo "[x] | No stock code found. Please add stock code (press [n]) first." && return 0
   local TS
   local LOOP_INDEX=0  # up to 2 (0~2: length=3) -> length of: {c,a,b}
   local DELTA_TARGET=ask
